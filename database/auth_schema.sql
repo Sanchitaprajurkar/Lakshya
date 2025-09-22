@@ -105,3 +105,4 @@ INSERT INTO Users (username, email, password_hash, role, department) VALUES
 
 INSERT INTO StudentProfiles (user_id, student_id, full_name, phone, branch, cgpa, graduation_year) VALUES 
 (3, 'CS2021001', 'John Doe', '9876543211', 'Computer Science', 8.5, 2025);
+

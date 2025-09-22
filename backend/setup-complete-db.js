@@ -105,3 +105,4 @@ async function setupDatabase() {
 // Run the setup
 setupDatabase();
 
+

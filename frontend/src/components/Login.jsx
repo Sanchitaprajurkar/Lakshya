@@ -8,9 +8,9 @@ import {
   Users,
   Shield,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-const Login = () => {
+const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -33,6 +33,8 @@ const Login = () => {
     setError("");
 
     try {
+      console.log("Attempting login with:", formData);
+      
       const response = await fetch("http://localhost:3001/api/auth/login", {
         method: "POST",
         headers: {
@@ -42,11 +44,11 @@ const Login = () => {
       });
 
       const data = await response.json();
+      console.log("Login response:", data);
 
       if (response.ok) {
-        // Store token and user data
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        // Call the onLogin callback from parent
+        onLogin(data.user, data.token);
 
         // Redirect based on role
         switch (data.user.role) {
@@ -63,10 +65,12 @@ const Login = () => {
             navigate("/");
         }
       } else {
-        setError(data.error || "Login failed");
+        console.error("Login failed:", data);
+        setError(data.error || data.message || "Login failed. Please try again.");
       }
     } catch (error) {
-      setError("Network error. Please try again.");
+      console.error("Login error:", error);
+      setError("Network error or server issue. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -108,7 +112,7 @@ const Login = () => {
           </div>
           <h1 className="text-4xl font-bold text-white mb-2">Lakshya</h1>
           <p className="text-blue-200 text-lg">
-            KKWIEER Placement Management System
+            KKWIEER Lakshya Placement Management System
           </p>
         </div>
 
@@ -180,6 +184,18 @@ const Login = () => {
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
+
+            <div className="text-center mt-4">
+              <p className="text-white/70 text-sm">
+                Don't have an account?{" "}
+                <Link
+                  to="/register"
+                  className="text-blue-400 hover:text-blue-300 font-medium"
+                >
+                  Register as Student
+                </Link>
+              </p>
+            </div>
           </form>
 
           {/* Demo Credentials */}

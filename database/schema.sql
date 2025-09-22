@@ -4,7 +4,7 @@ USE placement_portal;
 
 -- Student Table
 CREATE TABLE Student (
-  student_id INT PRIMARY KEY,
+  student_id VARCHAR(20) PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   branch VARCHAR(50) NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE Job (
 -- Application Table
 CREATE TABLE Application (
   app_id INT PRIMARY KEY AUTO_INCREMENT,
-  student_id INT,
+  student_id VARCHAR(20),
   job_id INT,
   status ENUM('Applied', 'Under Review', 'Shortlisted', 'Rejected', 'Selected') DEFAULT 'Applied',
   applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -98,10 +98,11 @@ const StudentForm = () => {
     }
   };
 
-  const handleAddStudent = async () => {
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
     try {
       console.log("Attempting to add student with data:", studentForm);
-      
+
       if (!validateForm()) {
         console.log("Form validation failed");
         return;
@@ -110,7 +111,7 @@ const StudentForm = () => {
       console.log("Form validation passed, calling API...");
       const result = await studentsAPI.create(studentForm);
       console.log("API call successful:", result);
-      
+
       await fetchStudents();
       resetForm();
       setShowAddStudent(false);
@@ -121,7 +122,8 @@ const StudentForm = () => {
     }
   };
 
-  const handleUpdateStudent = async () => {
+  const handleUpdateStudent = async (e) => {
+    e.preventDefault();
     try {
       if (!validateForm()) return;
 
@@ -227,12 +229,12 @@ const StudentForm = () => {
   const filteredStudents = students.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.roll_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesBranch = !filters.branch || student.branch === filters.branch;
     const matchesYear =
-      !filters.year || student.year.toString() === filters.year;
+      !filters.year || student.graduation_year.toString() === filters.year;
     const matchesStatus =
       !filters.status || student.placement_status === filters.status;
     const matchesCGPA =
@@ -390,7 +392,7 @@ const StudentForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStudents.map((student) => (
               <div
-                key={student.id}
+                key={student.student_id}
                 className="bg-gray-800 border border-gray-700 rounded-lg p-6 hover:border-purple-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -416,7 +418,7 @@ const StudentForm = () => {
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteStudent(student.id)}
+                      onClick={() => handleDeleteStudent(student.student_id)}
                       className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -495,7 +497,10 @@ const StudentForm = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <form
+              onSubmit={editingStudent ? handleUpdateStudent : handleAddStudent}
+              className="p-6 space-y-4"
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -503,6 +508,7 @@ const StudentForm = () => {
                   </label>
                   <input
                     type="text"
+                    required
                     value={studentForm.student_id}
                     onChange={(e) =>
                       setStudentForm({
@@ -521,6 +527,7 @@ const StudentForm = () => {
                   </label>
                   <input
                     type="text"
+                    required
                     value={studentForm.name}
                     onChange={(e) =>
                       setStudentForm({ ...studentForm, name: e.target.value })
@@ -538,6 +545,7 @@ const StudentForm = () => {
                   </label>
                   <input
                     type="email"
+                    required
                     value={studentForm.email}
                     onChange={(e) =>
                       setStudentForm({ ...studentForm, email: e.target.value })
@@ -553,6 +561,7 @@ const StudentForm = () => {
                   </label>
                   <input
                     type="tel"
+                    required
                     value={studentForm.phone}
                     onChange={(e) =>
                       setStudentForm({ ...studentForm, phone: e.target.value })
@@ -569,6 +578,7 @@ const StudentForm = () => {
                     Branch *
                   </label>
                   <select
+                    required
                     value={studentForm.branch}
                     onChange={(e) =>
                       setStudentForm({ ...studentForm, branch: e.target.value })
@@ -590,6 +600,7 @@ const StudentForm = () => {
                   </label>
                   <input
                     type="number"
+                    required
                     min="2020"
                     max="2030"
                     value={studentForm.graduation_year}
@@ -635,16 +646,14 @@ const StudentForm = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={
-                    editingStudent ? handleUpdateStudent : handleAddStudent
-                  }
+                  type="submit"
                   className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg text-white font-medium transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
                 >
                   <Save className="h-4 w-4" />
                   <span>{editingStudent ? "Update" : "Add"} Student</span>
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

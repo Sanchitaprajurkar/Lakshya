@@ -2,6 +2,7 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const path = require("path");
 require("dotenv").config();
 
 const { testConnection } = require("./config/database");
@@ -23,6 +24,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // Add request logging middleware for debugging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -35,7 +39,7 @@ testConnection();
 // Root route for testing
 app.get("/", (req, res) => {
   res.json({
-    message: "Placement Portal API is running!",
+    message: "Lakshya Placement Portal API is running!",
     version: "1.0.0",
     timestamp: new Date().toISOString(),
   });

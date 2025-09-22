@@ -1,239 +1,313 @@
+// backend/routes/auth.js
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const router = express.Router();
 const { pool } = require("../config/database");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "lakshya_placement_secret_key_2024";
-
-// Register new user
-router.post("/register", async (req, res) => {
-  try {
-    const { username, email, password, role, department, studentData } =
-      req.body;
-
-    // Validate required fields
-    if (!username || !email || !password || !role) {
-      return res.status(400).json({ error: "Missing required fields" });
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, "../uploads/resumes");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
-
-    // Check if user already exists
-    const [existingUser] = await pool.execute(
-      "SELECT user_id FROM Users WHERE username = ? OR email = ?",
-      [username, email]
-    );
-
-    if (existingUser.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "Username or email already exists" });
-    }
-
-    // Hash password
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
-
-    // Create user
-    const [userResult] = await pool.execute(
-      "INSERT INTO Users (username, email, password_hash, role, department) VALUES (?, ?, ?, ?, ?)",
-      [username, email, passwordHash, role, department || null]
-    );
-
-    const userId = userResult.insertId;
-
-    // Create role-specific profile
-    if (role === "student" && studentData) {
-      const { student_id, full_name, phone, branch, cgpa, graduation_year } =
-        studentData;
-
-      await pool.execute(
-        "INSERT INTO StudentProfiles (user_id, student_id, full_name, phone, branch, cgpa, graduation_year) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-          userId,
-          student_id,
-          full_name,
-          phone,
-          branch,
-          cgpa || null,
-          graduation_year,
-        ]
-      );
-    } else if (role === "coordinator") {
-      const { name, phone } = req.body;
-      await pool.execute(
-        "INSERT INTO Coordinators (user_id, department, name, phone) VALUES (?, ?, ?, ?)",
-        [userId, department, name, phone || null]
-      );
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId, username, email, role, department },
-      JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.status(201).json({
-      message: "User registered successfully",
-      token,
-      user: {
-        userId,
-        username,
-        email,
-        role,
-        department,
-      },
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({ error: "Failed to register user" });
-  }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+  },
 });
 
-// Login user
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype !== "application/pdf") {
+      return cb(new Error("Only PDF files are allowed"));
+    }
+    cb(null, true);
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
+
+const router = express.Router();
+
+// Login endpoint
 router.post("/login", async (req, res) => {
+  console.log("🔐 Login attempt received:", { username: req.body.username });
+
   try {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res
-        .status(400)
-        .json({ error: "Username and password are required" });
+      return res.status(400).json({
+        error: "Username and password are required",
+      });
     }
-
-    // Find user
+    
+    // Find user in the users table
     const [users] = await pool.execute(
-      "SELECT user_id, username, email, password_hash, role, department, is_active FROM Users WHERE username = ? OR email = ?",
-      [username, username]
+      "SELECT * FROM users WHERE username = ?",
+      [username]
     );
 
     if (users.length === 0) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.log("❌ User not found:", username);
+      return res.status(401).json({
+        error: "Invalid username or password",
+      });
     }
 
     const user = users[0];
+    console.log("✅ User found:", {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    });
 
-    if (!user.is_active) {
-      return res.status(401).json({ error: "Account is deactivated" });
-    }
+    // Compare password (using bcrypt)
+    const isValidPassword = await bcrypt.compare(password, user.password);
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.log("❌ Invalid password for user:", username);
+      return res.status(401).json({
+        error: "Invalid username or password",
+      });
     }
 
     // Generate JWT token
     const token = jwt.sign(
       {
-        userId: user.user_id,
+        userId: user.id,
         username: user.username,
-        email: user.email,
         role: user.role,
-        department: user.department,
       },
-      JWT_SECRET,
+      process.env.JWT_SECRET || "lakshya-placement-secret-2024",
       { expiresIn: "24h" }
     );
+
+    // Get additional user details based on role
+    let additionalDetails = {};
+
+    try {
+      if (user.role === "student") {
+        const [studentDetails] = await pool.execute(
+          "SELECT * FROM student WHERE user_id = ?",
+          [user.id]
+        );
+        additionalDetails = studentDetails[0] || {};
+      } else if (user.role === "coordinator") {
+        const [coordinatorDetails] = await pool.execute(
+          "SELECT * FROM coordinators WHERE user_id = ?",
+          [user.id]
+        );
+        additionalDetails = coordinatorDetails[0] || {};
+      } else if (user.role === "admin") {
+        const [adminDetails] = await pool.execute(
+          "SELECT * FROM admins WHERE user_id = ?",
+          [user.id]
+        );
+        additionalDetails = adminDetails[0] || {};
+      }
+    } catch (detailsError) {
+      console.log(
+        "⚠️  Could not fetch additional details:",
+        detailsError.message
+      );
+      // Continue without additional details
+    }
+
+    console.log("🎉 Login successful for:", username);
 
     res.json({
       message: "Login successful",
       token,
       user: {
-        userId: user.user_id,
+        id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
-        department: user.department,
+        ...additionalDetails,
       },
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: "Failed to login" });
+    return res.status(500).json({
+      error: "Internal server error",
+      message: error.message
+    });
   }
 });
 
-// Verify token middleware
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
+// Test endpoint
+router.get("/test", (req, res) => {
+  res.json({
+    message: "Auth routes are working!",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Get current user info (protected route)
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const [users] = await pool.execute(
+      "SELECT id, username, email, role FROM users WHERE id = ?",
+      [req.user.userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ user: users[0] });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Middleware to authenticate JWT tokens
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({ error: "Access token required" });
   }
 
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || "lakshya-placement-secret-2024",
+    (err, user) => {
+      if (err) {
+        return res.status(403).json({ error: "Invalid or expired token" });
+      }
+      req.user = user;
+      next();
+    }
+  );
+}
+
+// Registration endpoint
+router.post("/register", upload.single("resume"), async (req, res) => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const { username, email, password, role } = req.body;
+    const studentData = req.body.studentData ? JSON.parse(req.body.studentData) : null;
+
+    // Validate required fields
+    if (!username || !email || !password || !role) {
+      return res.status(400).json({
+        error: "Username, email, password, and role are required",
+      });
+    }
+
+    // Check if username or email already exists
+    const [existingUsers] = await pool.execute(
+      "SELECT * FROM users WHERE username = ? OR email = ?",
+      [username, email]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({
+        error: "Username or email already exists",
+      });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Begin transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Insert user
+      const [userResult] = await connection.execute(
+        "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
+        [username, email, hashedPassword, role]
+      );
+
+      const userId = userResult.insertId;
+
+      // If student role, insert student profile
+      if (role === "student" && studentData) {
+        const { student_id, full_name, phone, branch, cgpa, graduation_year } = studentData;
+        
+        // Check if student_id already exists
+        const [existingStudents] = await connection.execute(
+          "SELECT * FROM student WHERE student_id = ?",
+          [student_id]
+        );
+
+        if (existingStudents.length > 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            error: "Student ID already exists",
+          });
+        }
+
+        // Insert student profile
+        let resumePath = null;
+        if (req.file) {
+          resumePath = `/uploads/resumes/${req.file.filename}`;
+        }
+
+        await connection.execute(
+          "INSERT INTO student (user_id, student_id, name, phone, branch, cgpa, graduation_year, resume_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [userId, student_id, full_name, phone, branch, cgpa, graduation_year, resumePath]
+        );
+      }
+
+      // Commit transaction
+      await connection.commit();
+      
+      res.status(201).json({
+        message: "Registration successful",
+        userId,
+      });
+    } catch (error) {
+      // Rollback transaction on error
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      details: error.message,
+    });
+  }
+});
+
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const secret = process.env.JWT_SECRET || "lakshya-placement-secret-2024";
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ error: "Invalid token" });
+    console.error('Token verification error:', error);
+    return res.status(403).json({ error: 'Invalid token' });
   }
-};
+}
 
-// Get current user profile
-router.get("/profile", verifyToken, async (req, res) => {
-  try {
-    const { userId, role } = req.user;
-
-    let profile = null;
-
-    if (role === "student") {
-      const [studentProfiles] = await pool.execute(
-        "SELECT sp.*, u.username, u.email FROM StudentProfiles sp JOIN Users u ON sp.user_id = u.user_id WHERE u.user_id = ?",
-        [userId]
-      );
-      profile = studentProfiles[0];
-    } else if (role === "coordinator") {
-      const [coordinators] = await pool.execute(
-        "SELECT c.*, u.username, u.email FROM Coordinators c JOIN Users u ON c.user_id = u.user_id WHERE u.user_id = ?",
-        [userId]
-      );
-      profile = coordinators[0];
-    } else if (role === "admin") {
-      const [admins] = await pool.execute(
-        "SELECT user_id, username, email, role, department FROM Users WHERE user_id = ?",
-        [userId]
-      );
-      profile = admins[0];
-    }
-
-    if (!profile) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-
-    res.json({ profile });
-  } catch (error) {
-    console.error("Profile fetch error:", error);
-    res.status(500).json({ error: "Failed to fetch profile" });
-  }
-});
-
-// Update profile
-router.put("/profile", verifyToken, async (req, res) => {
-  try {
-    const { userId, role } = req.user;
-    const updateData = req.body;
-
-    if (role === "student") {
-      const { full_name, phone, cgpa, placement_status } = updateData;
-      await pool.execute(
-        "UPDATE StudentProfiles SET full_name = ?, phone = ?, cgpa = ?, placement_status = ? WHERE user_id = ?",
-        [full_name, phone, cgpa, placement_status, userId]
-      );
-    } else if (role === "coordinator") {
-      const { name, phone } = updateData;
-      await pool.execute(
-        "UPDATE Coordinators SET name = ?, phone = ? WHERE user_id = ?",
-        [name, phone, userId]
-      );
-    }
-
-    res.json({ message: "Profile updated successfully" });
-  } catch (error) {
-    console.error("Profile update error:", error);
-    res.status(500).json({ error: "Failed to update profile" });
-  }
-});
+// Export the verifyToken middleware for use in other routes
+const verifyToken = authenticateToken;
 
 module.exports = { router, verifyToken };

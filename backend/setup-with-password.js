@@ -124,3 +124,4 @@ async function setupDatabaseWithPassword() {
 // Run the setup
 setupDatabaseWithPassword();
 
+

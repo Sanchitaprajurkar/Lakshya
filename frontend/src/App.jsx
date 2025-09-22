@@ -1,153 +1,127 @@
-import React, { useState } from "react";
-import {
-  Home,
-  Users,
-  Briefcase,
-  FileText,
-  Building,
-  Menu,
-  X,
-  User,
-  Settings,
-  BarChart3,
-  Search,
-} from "lucide-react";
-import Dashboard from "./components/Dashboard";
-import JobList from "./components/JobList";
-import StudentForm from "./components/StudentForm";
-import ApplicationManagement from "./components/ApplicationManagement";
-import CompanyManagement from "./components/CompanyManagement";
-import ApplicationTracker from "./components/ApplicationTracker";
-import Reports from "./components/Reports";
+import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import Login from "./components/Login";
+import StudentDashboard from "./components/StudentDashboard";
+import CoordinatorDashboard from "./components/CoordinatorDashboard";
+import AdminDashboard from "./components/AdminDashboard";
+import StudentRegistration from "./components/StudentRegistration";
 
 function App() {
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  const navigationItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "students", label: "Students", icon: Users },
-    { id: "companies", label: "Companies", icon: Building },
-    { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "applications", label: "Applications", icon: FileText },
-    { id: "tracker", label: "Track Applications", icon: Search },
-    { id: "reports", label: "Reports", icon: BarChart3 },
-  ];
+  useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("user");
 
-  const handleNavigate = (tab) => {
-    setActiveTab(tab);
-    setSidebarOpen(false);
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case "dashboard":
-        return <Dashboard onNavigate={handleNavigate} />;
-      case "students":
-        return <StudentForm />;
-      case "companies":
-        return <CompanyManagement />;
-      case "jobs":
-        return <JobList />;
-      case "applications":
-        return <ApplicationManagement />;
-      case "tracker":
-        return <ApplicationTracker />;
-      case "reports":
-        return <Reports />;
-      default:
-        return <Dashboard onNavigate={handleNavigate} />;
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
     }
+    setLoading(false);
+  }, []);
+
+  const handleLogin = (userData, token) => {
+    setUser(userData);
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(userData));
   };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
-      >
-        {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">PlacementPro</h1>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-500 hover:text-gray-700"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="mt-6">
-          <div className="px-3">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigate(item.id)}
-                  className={`w-full flex items-center px-3 py-2 mt-1 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === item.id
-                      ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  <Icon className="h-5 w-5 mr-3" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* Footer */}
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <User className="h-4 w-4 text-white" />
-              </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">Admin User</p>
-              <p className="text-xs text-gray-500">admin@college.edu</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sidebar overlay for mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+    <div className="min-h-screen bg-gray-900">
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/login"
+          element={
+            user ? (
+              <Navigate to={`/${user.role}-dashboard`} replace />
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          }
         />
-      )}
+        <Route
+          path="/register"
+          element={
+            user ? (
+              <Navigate to={`/${user.role}-dashboard`} replace />
+            ) : (
+              <StudentRegistration />
+            )
+          }
+        />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden">
-          <div className="flex items-center justify-between h-16 px-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-            <h1 className="text-lg font-semibold text-gray-900">
-              {navigationItems.find((item) => item.id === activeTab)?.label ||
-                "Dashboard"}
-            </h1>
-            <div className="w-6" /> {/* Spacer */}
-          </div>
-        </header>
+        {/* Protected Routes */}
+        <Route
+          path="/student-dashboard"
+          element={
+            user && user.role === "student" ? (
+              <StudentDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/coordinator-dashboard"
+          element={
+            user && user.role === "coordinator" ? (
+              <CoordinatorDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin-dashboard"
+          element={
+            user && user.role === "admin" ? (
+              <AdminDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
 
-        {/* Main content area */}
-        <main className="flex-1 overflow-auto">{renderContent()}</main>
-      </div>
+        {/* Default Route */}
+        <Route
+          path="/"
+          element={
+            user ? (
+              <Navigate to={`/${user.role}-dashboard`} replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 }

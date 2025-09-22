@@ -255,10 +255,10 @@ const Dashboard = ({ onNavigate }) => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                Placement Dashboard
+                Lakshya Placement Dashboard
               </h1>
               <p className="text-gray-400 mt-2">
-                Welcome back! Here's your placement overview
+                Welcome back! Here's your Lakshya placement overview
               </p>
             </div>
             <div className="flex items-center space-x-4">
