@@ -1,4 +1,5 @@
 const mysql = require("mysql2/promise");
+require("dotenv").config();
 
 // Test database connection
 async function testConnection() {
@@ -7,12 +8,12 @@ async function testConnection() {
   try {
     console.log("🔌 Testing MySQL connection...");
 
-    // Try without password first
+    // Use environment variables
     connection = await mysql.createConnection({
-      host: "localhost",
-      user: "root",
-      password: "", // Add your MySQL root password here if needed
-      database: "placement_portal",
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER || "root",
+      password: process.env.DB_PASSWORD || "",
+      database: process.env.DB_NAME || "placement_portal",
     });
 
     console.log("✅ Successfully connected to MySQL!");

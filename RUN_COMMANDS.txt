@@ -1,0 +1,110 @@
+# Lakshya Placement Portal - Run Commands
+
+## Prerequisites
+- Node.js (v14 or higher)
+- MySQL server
+- npm
+
+## Step 1: Start MySQL Service
+# On macOS with Homebrew:
+brew services start mysql
+
+# Or start MySQL manually:
+mysql.server start
+
+## Step 2: Database Setup (One-time setup)
+# Navigate to database directory
+cd /Users/vedant/Desktop/Lakshya/database
+
+# Create database and run setup scripts
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS placement_portal;"
+mysql -u root -p placement_portal < setup.sql
+mysql -u root -p placement_portal < schema.sql
+mysql -u root -p placement_portal < auth_schema.sql
+mysql -u root -p placement_portal < procedures.sql
+mysql -u root -p placement_portal < triggers.sql
+mysql -u root -p placement_portal < sample_data.sql
+
+## Step 3: Backend Setup
+# Navigate to backend directory
+cd /Users/vedant/Desktop/Lakshya/backend
+
+# Install dependencies (one-time)
+npm install
+
+# Start backend server
+npm start
+# Backend will run on: http://localhost:3001
+
+## Step 4: Frontend Setup (Open new terminal)
+# Navigate to frontend directory
+cd /Users/vedant/Desktop/Lakshya/frontend
+
+# Install dependencies (one-time)
+npm install
+
+# Start frontend development server
+npm run dev
+# Frontend will run on: http://localhost:5000 or http://localhost:5001
+
+## Application URLs
+- Frontend: http://localhost:5000/ (or 5001 if 5000 is busy)
+- Backend API: http://localhost:3001/
+- Health Check: http://localhost:3001/health
+
+## Quick Start Commands (After initial setup)
+# Terminal 1 - Backend:
+cd /Users/vedant/Desktop/Lakshya/backend && npm start
+
+# Terminal 2 - Frontend:
+cd /Users/vedant/Desktop/Lakshya/frontend && npm run dev
+
+## Environment Configuration
+# Backend uses these settings in .env file:
+PORT=3002
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=vedant@10323
+DB_NAME=placement_portal
+JWT_SECRET=lakshya-placement-secret-2024
+
+## Default Login Credentials
+# Admin:
+Username: admin
+Password: admin123
+
+# Sample Student:
+Username: student001
+Password: student123
+
+# Sample Coordinator:
+Username: coordinator_cs
+Password: coordinator123
+
+## Troubleshooting
+# If port is busy, kill process:
+lsof -ti:3001 | xargs kill -9  # For backend
+lsof -ti:5000 | xargs kill -9  # For frontend
+
+# If MySQL connection fails:
+# 1. Check if MySQL is running: brew services list | grep mysql
+# 2. Verify password in .env file matches your MySQL root password
+# 3. Test connection: mysql -u root -p
+
+# If database tables don't exist:
+cd /Users/vedant/Desktop/Lakshya/backend
+node test-db-connection.js
+
+## Features Available
+- Student Registration and Login
+- Company Registration and Job Posting
+- Job Applications and Tracking
+- Authentication System
+- Results and Notifications
+- Admin Panel for Management
+
+## File Structure
+Lakshya/
+├── backend/          # Node.js/Express API server
+├── frontend/         # React/Vite frontend
+└── database/         # MySQL schema and setup files
