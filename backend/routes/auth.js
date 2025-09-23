@@ -50,9 +50,9 @@ router.post("/login", async (req, res) => {
       });
     }
     
-    // Find user in the users table
+    // Find user in the Users table
     const [users] = await pool.execute(
-      "SELECT * FROM users WHERE username = ?",
+      "SELECT * FROM Users WHERE username = ?",
       [username]
     );
 
@@ -65,13 +65,13 @@ router.post("/login", async (req, res) => {
 
     const user = users[0];
     console.log("✅ User found:", {
-      id: user.id,
+      id: user.user_id,
       username: user.username,
       role: user.role,
     });
 
     // Compare password (using bcrypt)
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
       console.log("❌ Invalid password for user:", username);
@@ -83,7 +83,7 @@ router.post("/login", async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       {
-        userId: user.id,
+        userId: user.user_id,
         username: user.username,
         role: user.role,
       },
@@ -97,20 +97,20 @@ router.post("/login", async (req, res) => {
     try {
       if (user.role === "student") {
         const [studentDetails] = await pool.execute(
-          "SELECT * FROM student WHERE user_id = ?",
-          [user.id]
+          "SELECT * FROM StudentProfiles WHERE user_id = ?",
+          [user.user_id]
         );
         additionalDetails = studentDetails[0] || {};
       } else if (user.role === "coordinator") {
         const [coordinatorDetails] = await pool.execute(
-          "SELECT * FROM coordinators WHERE user_id = ?",
-          [user.id]
+          "SELECT * FROM Coordinators WHERE user_id = ?",
+          [user.user_id]
         );
         additionalDetails = coordinatorDetails[0] || {};
       } else if (user.role === "admin") {
         const [adminDetails] = await pool.execute(
-          "SELECT * FROM admins WHERE user_id = ?",
-          [user.id]
+          "SELECT * FROM Users WHERE user_id = ? AND role = 'admin'",
+          [user.user_id]
         );
         additionalDetails = adminDetails[0] || {};
       }
@@ -128,7 +128,7 @@ router.post("/login", async (req, res) => {
       message: "Login successful",
       token,
       user: {
-        id: user.id,
+        id: user.user_id,
         username: user.username,
         email: user.email,
         role: user.role,
@@ -156,7 +156,7 @@ router.get("/test", (req, res) => {
 router.get("/me", authenticateToken, async (req, res) => {
   try {
     const [users] = await pool.execute(
-      "SELECT id, username, email, role FROM users WHERE id = ?",
+      "SELECT user_id, username, email, role FROM Users WHERE user_id = ?",
       [req.user.userId]
     );
 
@@ -208,7 +208,7 @@ router.post("/register", upload.single("resume"), async (req, res) => {
 
     // Check if username or email already exists
     const [existingUsers] = await pool.execute(
-      "SELECT * FROM users WHERE username = ? OR email = ?",
+      "SELECT * FROM Users WHERE username = ? OR email = ?",
       [username, email]
     );
 
@@ -229,7 +229,7 @@ router.post("/register", upload.single("resume"), async (req, res) => {
     try {
       // Insert user
       const [userResult] = await connection.execute(
-        "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
+        "INSERT INTO Users (username, email, password_hash, role) VALUES (?, ?, ?, ?)",
         [username, email, hashedPassword, role]
       );
 
@@ -241,7 +241,7 @@ router.post("/register", upload.single("resume"), async (req, res) => {
         
         // Check if student_id already exists
         const [existingStudents] = await connection.execute(
-          "SELECT * FROM student WHERE student_id = ?",
+          "SELECT * FROM StudentProfiles WHERE student_id = ?",
           [student_id]
         );
 
@@ -259,7 +259,7 @@ router.post("/register", upload.single("resume"), async (req, res) => {
         }
 
         await connection.execute(
-          "INSERT INTO student (user_id, student_id, name, phone, branch, cgpa, graduation_year, resume_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO StudentProfiles (user_id, student_id, full_name, phone, branch, cgpa, graduation_year, resume_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           [userId, student_id, full_name, phone, branch, cgpa, graduation_year, resumePath]
         );
       }
